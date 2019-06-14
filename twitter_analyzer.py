@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from textblob import TextBlob
 from tweepy import Stream
 from tweepy import OAuthHandler
 from tweepy.streaming import StreamListener
@@ -79,51 +81,93 @@ class TwitterStreamer():
 
 
 class TwitterListener(StreamListener):
+    """
+    Note: on_data's data is type<string> and not a type<'tweepy.models.ResultSet'>
+    """
 
     def __init__(self, fetched_tweets_filename):
         self.fetched_tweets_filename = fetched_tweets_filename
+        self.count = 0
 
     def on_data(self, data):
-        try:
-            print(data)
-            with open(self.fetched_tweets_filename, 'a') as tf:
-                tf.write(data)
-        except BaseException as e:
-            print(f"Error on_data: {str(e)}")
-        return True
+        if self.count < 3:
+            try:
+                self.count += 1
+                print(type(data))
+                with open(self.fetched_tweets_filename, 'a') as twitter_file:
+                    json.dump(data, twitter_file, indent=4,
+                              separators=(',', ':'))
+            except BaseException as e:
+                print(f"Error on_data: {str(e)}")
+            return True
+        else:
+            return False
 
     def on_error(self, status):
+        print(status)
         if status == 402:
             # stop on_data method if rate limit reached
             return False
-        print(status)
 
 
 class TweetAnalyzer():
     """
     Functionality for ananlyzing and categorizing content from tweets
     """
+
+    def clean_tweet(self, tweet):
+        return ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)", " ", tweet).split())
+
+    def analyze_sentiment(self, tweet):
+        analysis = TextBlob(self.clean_tweet(tweet))
+
+        if analysis.sentiment.polarity > 0:
+            return 1
+        elif analysis.sentiment.polarity == 0:
+            return 0
+        else:
+            return -1
+
     def tweets_to_df(self, tweets):
         df = pd.DataFrame(data=[tweet.text for tweet in tweets],
-                          columns=['Tweets'])
+                          columns=['tweets'])
+        df['id'] = np.array([tweet.id for tweet in tweets])
+        df['len'] = np.array([len(tweet.text) for tweet in tweets])
+        df['date'] = np.array([tweet.created_at for tweet in tweets])
+        df['source'] = np.array([tweet.source for tweet in tweets])
+        df['likes'] = np.array([tweet.favorite_count for tweet in tweets])
+        df['retweets'] = np.array([tweet.retweet_count for tweet in tweets])
+        # print(df)
         return df
 
 
 if __name__ == "__main__":
     TWITTER_CLIENT = TwitterClient()
     TWEET_ANALYZER = TweetAnalyzer()
-
     api = TWITTER_CLIENT.get_twitter_client_api()
-    tweets = api.user_timeline(screen_name='sorXCode', count=20)
+    tweets = api.user_timeline(screen_name='dopeycutie', count=200)
+    # print(type(tweets))
+    # # print(TWITTER_CLIENT.get_usertl_tweets(1))
+
+    # with open('_tweets.pkl', 'rb') as tweets_file:
+    #     tweets = pickle.loads(tweets_file.read())
+    # print(tweets)
 
     df = TWEET_ANALYZER.tweets_to_df(tweets)
+    df['sentiment'] = np.array([TWEET_ANALYZER.analyze_sentiment(tweet)
+                                for tweet in df['tweets']])
+    # print(df.head(5))
+    # MEAN_TWEET_LENGTH = np.mean(df['len'])
 
-    print(df.head(5))
-
-    # HASH_TAG_LIST = ['Bincom']
-    # FETCHED_TWEET_FILENAME = 'tweets.json'
-
+    # HASH_TAG_LIST = ['earth', 'love', 'man', ]
+    # FETCHED_TWEET_FILENAME = '_tweets.json'
     # TWITTER_CLIENT = TwitterClient('sorXCode')
-    # print(TWITTER_CLIENT.get_usertl_tweets(1))
     # twitter_streamer = TwitterStreamer()
-    # twitter_streamer.stream_tweets(fetched_tweet_filename, hash_tag_list)
+    # twitter_streamer.stream_tweets(FETCHED_TWEET_FILENAME, HASH_TAG_LIST)
+
+    # NUMBER_OF_MOST_LIKED_TWEET = np.mean(df['likes'])
+    # time_likes = pd.Series(data=df['likes'].values, index=df['date'])
+    # time_likes.plot(figsize=(16, 4), color='r', label='Likes', legend=True)
+    # time_retweets = pd.Series(data=df['retweets'].values, index=df['date'])
+    # time_retweets.plot(figsize=(16, 4), color='b', label='retweets', legend=True)
+    # plt.show()
