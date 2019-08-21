@@ -1,0 +1,3 @@
+google-cloud-language==1.2.0
+inflect
+pandas>=0.24.2
