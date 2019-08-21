@@ -1,5 +1,5 @@
 .vscode
-*dentials.json
+*.json
 .python-*
 *.zip
 *.csv
