@@ -5,6 +5,7 @@ This program runs sentiment analysis on tweets from twitter backup file using Go
 # Requirements
 - python3
 - pandas>=0.24.2
+- inflect 
 - google-cloud-language==1.2.0
 - visit [Google_Application_Credentials](https://cloud.google.com/docs/authentication/getting-started) page for procedures to obtain credentials. 
 
